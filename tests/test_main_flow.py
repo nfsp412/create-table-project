@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 import unittest
 from argparse import Namespace
 from pathlib import Path
@@ -38,12 +40,18 @@ def _fields_df_for_table(table_name: str) -> pd.DataFrame:
 
 
 class TestMainFlow(unittest.TestCase):
+    def setUp(self):
+        self.tmp_dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
     def _run_main_with_mocks(
         self,
         *,
         tables_df: pd.DataFrame,
         fields_df: pd.DataFrame,
-        output_base: str = "/fake",
+        output_base: str | Path | None = None,
         fake_date: str = "20260318",
         build_table_name_return: str = "ods_ad_pl_t1_day",
         hive_sql: str = "HIVE_SQL",
@@ -53,6 +61,7 @@ class TestMainFlow(unittest.TestCase):
     ):
         import app.main as main_mod
 
+        output_base = output_base or str(self.tmp_dir)
         m_open = mock_open()
         expected_output_dir = str(Path(output_base) / fake_date)
 
@@ -90,7 +99,6 @@ class TestMainFlow(unittest.TestCase):
             "build_ck_sql": m_build_ck_sql,
             "build_ck_alter_sql": m_build_ck_alter_sql,
             "exists": m_exists,
-            "makedirs": m_os.makedirs,
             "remove": m_os.remove,
             "expected_output_dir": expected_output_dir,
         }
@@ -107,7 +115,6 @@ class TestMainFlow(unittest.TestCase):
             exists_output_file=False,
         )
 
-        mocks["makedirs"].assert_called_once_with(mocks["expected_output_dir"], exist_ok=True)
         mocks["build_table_name"].assert_called_once()
         mocks["build_hive_sql"].assert_called_once()
 

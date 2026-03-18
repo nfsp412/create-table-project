@@ -62,17 +62,16 @@ def main() -> None:
     主函数
     """
     args = parse_args()
-    setup_logging(debug=args.debug)
+    today = datetime.now().strftime("%Y%m%d")
+    output_dir = OUTPUT_BASE_DIR / today
+    output_dir.mkdir(parents=True, exist_ok=True)
+    setup_logging(debug=args.debug, log_dir=output_dir)
     logger.info("create_table 脚本启动")
 
-    today = datetime.now().strftime("%Y%m%d")
-    output_dir = str(OUTPUT_BASE_DIR / today)
-    excel_path = str(OUTPUT_BASE_DIR / today / EXCEL_FILENAME)
-
+    excel_path = str(output_dir / EXCEL_FILENAME)
     data = load_excel(excel_path)
     tables_df = data["tables"]
     fields_df = data["fields"]
-    os.makedirs(output_dir, exist_ok=True)
     logger.info("输出目录: %s", output_dir)
 
     # 期望 sheet 表头：
@@ -227,13 +226,13 @@ def main() -> None:
                 hive_table_name,
                 new_fields_df,
             )
-            output_path = os.path.join(output_dir, f"{hive_table_name}_ck_alter.sql")
+            output_path = output_dir / f"{hive_table_name}_ck_alter.sql"
         elif target_table_type == "clickhouse":
             create_sql = build_create_table_sql_clickhouse(
                 hive_table_name,
                 table_fields_df,
             )
-            output_path = os.path.join(output_dir, f"{hive_table_name}_ck.sql")
+            output_path = output_dir / f"{hive_table_name}_ck.sql"
         else:
             create_sql = build_create_table_sql(
                 hive_table_name,
@@ -243,7 +242,7 @@ def main() -> None:
                 storage_format=storage_format,
                 dw_layer=dw_layer,
             )
-            output_path = os.path.join(output_dir, f"{hive_table_name}.sql")
+            output_path = output_dir / f"{hive_table_name}.sql"
 
         # 如果目标文件已存在，先删除再生成，保证是本次最新内容
         if os.path.exists(output_path):
