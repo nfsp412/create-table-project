@@ -29,7 +29,9 @@ project_root_str = str(project_root.resolve())
 if project_root_str not in sys.path:
     sys.path.insert(0, project_root_str)
 
-from app.config.settings import OUTPUT_DIR
+from datetime import datetime
+
+from app.config.settings import OUTPUT_BASE_DIR
 from app.utils.excel_reader import load_excel
 from app.utils.logger import setup_logging
 from app.utils.table_builder import (
@@ -67,9 +69,10 @@ def main() -> None:
     tables_df = data["tables"]
     fields_df = data["fields"]
 
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        logger.info("输出目录不存在，已创建: %s", OUTPUT_DIR)
+    today = datetime.now().strftime("%Y%m%d")
+    output_dir = str(OUTPUT_BASE_DIR / today)
+    os.makedirs(output_dir, exist_ok=True)
+    logger.info("输出目录: %s", output_dir)
 
     # 期望 sheet 表头：
     # tables: 表名, 产品线, 入仓方式, 表注释信息, 数仓分层（可选）, 建表格式（可选）, hive表名（可选）, 目标表类型（可选）, 操作类型（可选：新建表/修改表）
@@ -223,13 +226,13 @@ def main() -> None:
                 hive_table_name,
                 new_fields_df,
             )
-            output_path = os.path.join(OUTPUT_DIR, f"{hive_table_name}_ck_alter.sql")
+            output_path = os.path.join(output_dir, f"{hive_table_name}_ck_alter.sql")
         elif target_table_type == "clickhouse":
             create_sql = build_create_table_sql_clickhouse(
                 hive_table_name,
                 table_fields_df,
             )
-            output_path = os.path.join(OUTPUT_DIR, f"{hive_table_name}_ck.sql")
+            output_path = os.path.join(output_dir, f"{hive_table_name}_ck.sql")
         else:
             create_sql = build_create_table_sql(
                 hive_table_name,
@@ -239,7 +242,7 @@ def main() -> None:
                 storage_format=storage_format,
                 dw_layer=dw_layer,
             )
-            output_path = os.path.join(OUTPUT_DIR, f"{hive_table_name}.sql")
+            output_path = os.path.join(output_dir, f"{hive_table_name}.sql")
 
         # 如果目标文件已存在，先删除再生成，保证是本次最新内容
         if os.path.exists(output_path):

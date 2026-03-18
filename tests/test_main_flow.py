@@ -1,7 +1,8 @@
 import os
 import unittest
 from argparse import Namespace
-from unittest.mock import call, mock_open, patch
+from pathlib import Path
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pandas as pd
 
@@ -42,28 +43,29 @@ class TestMainFlow(unittest.TestCase):
         *,
         tables_df: pd.DataFrame,
         fields_df: pd.DataFrame,
-        output_dir: str = "/fake/out",
+        output_base: str = "/fake",
+        fake_date: str = "20260318",
         build_table_name_return: str = "ods_ad_pl_t1_day",
         hive_sql: str = "HIVE_SQL",
         ck_sql: str = "CK_SQL",
         ck_alter_sql: str = "CK_ALTER_SQL",
-        exists_output_dir: bool = False,
         exists_output_file: bool = False,
     ):
         import app.main as main_mod
 
         m_open = mock_open()
+        expected_output_dir = str(Path(output_base) / fake_date)
 
-        def _exists_side_effect(path: str) -> bool:
-            if path == output_dir:
-                return exists_output_dir
-            return exists_output_file
+        mock_datetime = MagicMock()
+        mock_datetime.now.return_value.strftime.return_value = fake_date
 
         with patch.object(main_mod, "parse_args", return_value=Namespace(debug=False)), patch.object(
             main_mod, "setup_logging"
         ) as m_setup_logging, patch.object(
             main_mod, "load_excel", return_value={"tables": tables_df, "fields": fields_df}
-        ), patch.object(main_mod, "OUTPUT_DIR", output_dir), patch.object(
+        ), patch.object(main_mod, "OUTPUT_BASE_DIR", Path(output_base)), patch.object(
+            main_mod, "datetime", mock_datetime
+        ), patch.object(
             main_mod, "build_table_name", return_value=build_table_name_return
         ) as m_build_table_name, patch.object(
             main_mod, "build_create_table_sql", return_value=hive_sql
@@ -74,7 +76,7 @@ class TestMainFlow(unittest.TestCase):
         ) as m_build_ck_alter_sql, patch.object(
             main_mod, "os"
         ) as m_os, patch.object(
-            main_mod.os.path, "exists", side_effect=_exists_side_effect
+            main_mod.os.path, "exists", return_value=exists_output_file
         ) as m_exists, patch(
             "builtins.open", m_open
         ):
@@ -90,6 +92,7 @@ class TestMainFlow(unittest.TestCase):
             "exists": m_exists,
             "makedirs": m_os.makedirs,
             "remove": m_os.remove,
+            "expected_output_dir": expected_output_dir,
         }
 
     def test_hive_branch_builds_table_name_and_creates_output_dir(self):
@@ -101,11 +104,10 @@ class TestMainFlow(unittest.TestCase):
             fields_df=fields_df,
             build_table_name_return="ods_ad_pl_t1_day",
             hive_sql="HIVE_SQL",
-            exists_output_dir=False,
             exists_output_file=False,
         )
 
-        mocks["makedirs"].assert_called_once_with("/fake/out", exist_ok=True)
+        mocks["makedirs"].assert_called_once_with(mocks["expected_output_dir"], exist_ok=True)
         mocks["build_table_name"].assert_called_once()
         mocks["build_hive_sql"].assert_called_once()
 
@@ -124,7 +126,6 @@ class TestMainFlow(unittest.TestCase):
             fields_df=fields_df,
             build_table_name_return="ods_ad_pl_t1_day",
             ck_sql="CK_SQL",
-            exists_output_dir=True,
             exists_output_file=False,
         )
 
@@ -155,7 +156,6 @@ class TestMainFlow(unittest.TestCase):
             fields_df=fields_df,
             build_table_name_return="ods_ad_pl_t1_day",
             ck_alter_sql="CK_ALTER_SQL",
-            exists_output_dir=True,
             exists_output_file=False,
         )
 
@@ -177,7 +177,6 @@ class TestMainFlow(unittest.TestCase):
             fields_df=fields_df,
             build_table_name_return="should_not_be_used",
             hive_sql="HIVE_SQL",
-            exists_output_dir=True,
             exists_output_file=False,
         )
 
@@ -194,7 +193,6 @@ class TestMainFlow(unittest.TestCase):
             tables_df=tables_df,
             fields_df=fields_df,
             hive_sql="HIVE_SQL",
-            exists_output_dir=True,
             exists_output_file=False,
         )
 
@@ -212,7 +210,6 @@ class TestMainFlow(unittest.TestCase):
             fields_df=fields_df,
             build_table_name_return="ods_ad_pl_t1_day",
             hive_sql="HIVE_SQL",
-            exists_output_dir=True,
             exists_output_file=True,
         )
 
@@ -233,7 +230,6 @@ class TestMainFlow(unittest.TestCase):
             tables_df=tables_df,
             fields_df=fields_df,
             build_table_name_return="ods_ad_pl_t1_day",
-            exists_output_dir=True,
             exists_output_file=False,
         )
 
