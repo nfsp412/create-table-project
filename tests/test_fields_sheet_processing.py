@@ -54,6 +54,22 @@ class TestFieldsSheetProcessing(unittest.TestCase):
         self.assertEqual(field2_row["字段数据类型"], "INT")
         self.assertEqual(field2_row["字段注释"], "字段2注释")
 
+    def test_same_table_multiple_create_statements_deduplicated(self):
+        """同表多行建表语句（如 hive+clickhouse）应去重，避免重复字段。"""
+        create_sql = "CREATE TABLE t1 (`id` BIGINT COMMENT 'ID', `name` STRING COMMENT '名称')"
+        fields_df = pd.DataFrame(
+            {
+                "表名": ["t1", "t1"],
+                "字段名": ["", ""],
+                "字段数据类型": ["", ""],
+                "字段注释": ["", ""],
+                "建表语句": [create_sql, create_sql],
+            }
+        )
+        result_df = _process_fields_sheet(fields_df)
+        self.assertEqual(len(result_df), 2, "应去重为 2 个字段，而非 4 个")
+        self.assertEqual(set(result_df["字段名"].tolist()), {"id", "name"})
+
 
 if __name__ == "__main__":
     unittest.main()

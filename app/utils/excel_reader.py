@@ -154,6 +154,11 @@ def _process_fields_sheet(fields_df: pd.DataFrame) -> pd.DataFrame:
     # 转换为DataFrame
     if parsed_fields:
         result_df = pd.DataFrame(parsed_fields)
+        # 去重：同一表名+字段名只保留首次出现，避免同表多行（如 hive+clickhouse）导致重复字段
+        before_count = len(result_df)
+        result_df = result_df.drop_duplicates(subset=["表名", "字段名"], keep="first")
+        if len(result_df) < before_count:
+            logger.info("fields 去重：%d -> %d 条（同表多行建表语句已合并）", before_count, len(result_df))
         # 确保返回列的顺序稳定：若存在“操作类型”则一并返回
         cols = ["表名", "字段名", "字段数据类型", "字段注释"]
         if "操作类型" in result_df.columns:
