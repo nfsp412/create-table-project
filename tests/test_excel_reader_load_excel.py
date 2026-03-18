@@ -16,7 +16,7 @@ class TestLoadExcel(unittest.TestCase):
     def test_load_excel_raises_when_file_missing(self):
         with patch("app.utils.excel_reader.os.path.exists", return_value=False):
             with self.assertRaises(FileNotFoundError):
-                load_excel()
+                load_excel("/fake/path/create_table_info.xlsx")
 
     def test_load_excel_raises_when_fields_missing_required_columns(self):
         tables_df = pd.DataFrame({"表名": ["t1"], "产品线": ["p"], "入仓方式": ["天表"]})
@@ -43,7 +43,7 @@ class TestLoadExcel(unittest.TestCase):
             "app.utils.excel_reader.pd.ExcelFile", return_value=fake_xls
         ), patch("app.utils.excel_reader.pd.read_excel", side_effect=_fake_read_excel):
             with self.assertRaises(ValueError) as ctx:
-                load_excel()
+                load_excel("/fake/path/create_table_info.xlsx")
             self.assertIn("fields sheet 缺少必需的列", str(ctx.exception))
             self.assertIn("字段注释", str(ctx.exception))
 
@@ -71,7 +71,7 @@ class TestLoadExcel(unittest.TestCase):
         with patch("app.utils.excel_reader.os.path.exists", return_value=True), patch(
             "app.utils.excel_reader.pd.ExcelFile", return_value=fake_xls
         ), patch("app.utils.excel_reader.pd.read_excel", side_effect=_fake_read_excel):
-            result = load_excel()
+            result = load_excel("/fake/path/create_table_info.xlsx")
 
         self.assertIn("tables", result)
         self.assertIn("fields", result)

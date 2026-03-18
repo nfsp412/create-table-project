@@ -31,7 +31,7 @@ if project_root_str not in sys.path:
 
 from datetime import datetime
 
-from app.config.settings import OUTPUT_BASE_DIR
+from app.config.settings import EXCEL_FILENAME, OUTPUT_BASE_DIR
 from app.utils.excel_reader import load_excel
 from app.utils.logger import setup_logging
 from app.utils.table_builder import (
@@ -65,12 +65,13 @@ def main() -> None:
     setup_logging(debug=args.debug)
     logger.info("create_table 脚本启动")
 
-    data = load_excel()
-    tables_df = data["tables"]
-    fields_df = data["fields"]
-
     today = datetime.now().strftime("%Y%m%d")
     output_dir = str(OUTPUT_BASE_DIR / today)
+    excel_path = str(OUTPUT_BASE_DIR / today / EXCEL_FILENAME)
+
+    data = load_excel(excel_path)
+    tables_df = data["tables"]
+    fields_df = data["fields"]
     os.makedirs(output_dir, exist_ok=True)
     logger.info("输出目录: %s", output_dir)
 

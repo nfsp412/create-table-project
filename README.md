@@ -76,8 +76,8 @@ uv tool install <tool>
 
 说明：
 
-- Excel 输入路径 `EXCEL_PATH` 与输出根目录 `OUTPUT_BASE_DIR` 在 `app/config/settings.py` 中配置
-- 输出的 SQL 文件按运行日期自动归档到 `create-table-output/YYYYMMDD/` 目录下
+- Excel 输入路径与输出根目录 `OUTPUT_BASE_DIR` 在 `app/config/settings.py` 中配置
+- 输入 Excel 与输出 SQL 文件均按运行日期自动归档到 `create-table-output/YYYYMMDD/` 目录下
 - 若提示 `create-table: command not found`，请优先使用 `uv run create-table`；或者确认你已经在当前环境中安装了该项目（如使用传统 conda/venv，可在对应环境下执行 `pip install -e .`）
 
 ## Excel 文件格式
@@ -204,7 +204,7 @@ uv run python -m unittest tests.test_mysql_parser -v
 
 ### Excel 文件不存在
 
-检查 `app/config/settings.py` 中的 `EXCEL_PATH` 配置是否正确。默认路径为项目同级目录下的 `create-table-output/create_table_info.xlsx`。
+Excel 文件路径为 `create-table-output/YYYYMMDD/create_table_info.xlsx`（按运行日期自动定位），请确认对应日期目录下存在该文件。
 
 ### 表名匹配失败
 
@@ -267,7 +267,7 @@ create-table-project/
 | 配置项 | 说明 |
 |--------|------|
 | `PROJECT_ROOT` | 项目根目录（自动计算） |
-| `EXCEL_PATH` | Excel 输入文件路径（默认：项目同级 `create-table-output/create_table_info.xlsx`） |
+| `EXCEL_FILENAME` | Excel 文件名（默认：`create_table_info.xlsx`，运行时按日期拼接为 `create-table-output/YYYYMMDD/create_table_info.xlsx`） |
 | `OUTPUT_BASE_DIR` | 输出根目录（默认：项目同级 `create-table-output/`，运行时自动追加日期子目录） |
 | `LOG_DIR` | 日志目录（默认：项目下 `logs/`） |
 

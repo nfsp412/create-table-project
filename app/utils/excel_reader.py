@@ -13,16 +13,18 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from app.config.settings import EXCEL_PATH
 from app.utils.mysql_parser import parse_mysql_create_table
 from app.utils.table_builder import normalize_field_comment
 
 logger = logging.getLogger(__name__)
 
 
-def load_excel() -> Dict[str, pd.DataFrame]:
+def load_excel(excel_path: str) -> Dict[str, pd.DataFrame]:
     """
     读取Excel文件，返回tables和fields两个DataFrame。
+    
+    Args:
+        excel_path: Excel 文件的完整路径
     
     fields sheet统一使用混合格式（5列）：
     - 表名（必需）
@@ -36,11 +38,11 @@ def load_excel() -> Dict[str, pd.DataFrame]:
     - 当一行有"字段名"、"字段数据类型"、"字段注释"且不为空时，直接使用这些字段信息
     - 同一sheet中可以混合使用两种方式
     """
-    logger.info("开始读取 Excel 文件: %s", EXCEL_PATH)
-    if not os.path.exists(EXCEL_PATH):
-        raise FileNotFoundError(f"Excel 文件不存在: {EXCEL_PATH}")
+    logger.info("开始读取 Excel 文件: %s", excel_path)
+    if not os.path.exists(excel_path):
+        raise FileNotFoundError(f"Excel 文件不存在: {excel_path}")
 
-    xls = pd.ExcelFile(EXCEL_PATH)
+    xls = pd.ExcelFile(excel_path)
     tables_df = pd.read_excel(xls, "tables")
     fields_df = pd.read_excel(xls, "fields")
     logger.info("Excel 读取完成, tables 行数=%d, fields 行数=%d", len(tables_df), len(fields_df))
