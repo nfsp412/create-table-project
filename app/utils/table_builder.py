@@ -340,3 +340,53 @@ def build_alter_table_sql_clickhouse(
     )
 
     return f"{local_stmt}\n\n{distributed_stmt}"
+
+
+def build_alter_table_sql_hive(
+    hive_table_name: str,
+    fields_df: pd.DataFrame,
+) -> str:
+    """
+    根据需要新增的字段信息生成 Hive 新增字段的 ALTER 语句。
+    期望 fields_df 已经过滤为当前表的"需要新增"的字段行。
+    对每个字段生成 ADD COLUMNS 子句，合并为一条 ALTER TABLE 语句。
+
+    Args:
+        hive_table_name: Hive 表名
+        fields_df: 字段信息 DataFrame（需包含：字段名、字段数据类型、字段注释）
+
+    Returns:
+        Hive ALTER TABLE ADD COLUMNS 的 SQL 字符串
+    """
+    columns_sql = []
+
+    for _, row in fields_df.iterrows():
+        col_name = str(row["字段名"]).strip()
+        mysql_type = str(row["字段数据类型"]).strip() if not pd.isna(row["字段数据类型"]) else ""
+        raw_comment = "" if pd.isna(row["字段注释"]) else str(row["字段注释"])
+        col_comment = normalize_field_comment(raw_comment).replace("'", "\\'")
+
+        hive_type = mysql_type_to_hive(mysql_type)
+        logger.debug(
+            "ALTER 字段解析: 表=%s, 字段名=%s, MySQL类型=%s, Hive类型=%s, 字段注释=%s",
+            hive_table_name,
+            col_name,
+            mysql_type,
+            hive_type,
+            col_comment,
+        )
+        col_def = f"  `{col_name}` {hive_type}"
+        if col_comment:
+            col_def += f" COMMENT '{col_comment}'"
+        columns_sql.append(col_def)
+
+    if not columns_sql:
+        return ""
+
+    columns_block = ",\n".join(columns_sql)
+    alter_sql = (
+        f"ALTER TABLE `default`.`{hive_table_name}` ADD COLUMNS (\n"
+        f"{columns_block}\n"
+        f");"
+    )
+    return alter_sql

@@ -39,6 +39,7 @@ from app.utils.table_builder import (
     build_table_name,
     build_create_table_sql_clickhouse,
     build_alter_table_sql_clickhouse,
+    build_alter_table_sql_hive,
 )
 
 logger = logging.getLogger(__name__)
@@ -233,6 +234,18 @@ def main() -> None:
                 table_fields_df,
             )
             output_path = output_dir / f"{hive_table_name}_ck.sql"
+        elif target_table_type == "hive" and op_type == "alter":
+            new_fields_df = table_fields_df[table_fields_df["操作类型_标准化"] == "alter"]
+            if new_fields_df.empty:
+                logger.warning(
+                    "表 %s (hive表名=%s) 为修改表且目标表类型为 hive，但未找到任何标记为「修改表」的字段，跳过生成",
+                    raw_table_name,
+                    hive_table_name,
+                )
+                continue
+
+            create_sql = build_alter_table_sql_hive(hive_table_name, new_fields_df)
+            output_path = output_dir / f"{hive_table_name}_alter.sql"
         else:
             create_sql = build_create_table_sql(
                 hive_table_name,
