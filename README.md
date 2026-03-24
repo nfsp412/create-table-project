@@ -125,6 +125,20 @@ uv run create-table --debug
 - 同一 sheet 中可以混合使用两种方式
 - 字段注释会进行规范化：换行符、制表符等空白字符会被合并为单个空格
 
+### rpa sheet（运行后自动写入）
+
+每次运行结束会在**同一文件** `create-table-output/YYYYMMDD/create_table_info.xlsx` 中**新建或覆盖** `rpa` 工作表，不修改 `tables`、`fields` 中已有内容。
+
+| 列名 | Hive 新建表 | ClickHouse 新建表 |
+|------|------------|------------------|
+| 数据描述信息 | 从生成的 Hive DDL 中解析表级 `COMMENT` | 空 |
+| 数仓分层 | 与主流程一致；`tables` 中空单元格时写入默认 `ods` | 空 |
+| 建表语句 | 与落盘的 `.sql` 一致但**去掉** `LOCATION '...'` 整行 | 完整 DDL（与 `.sql` 一致） |
+| 存储路径值 | `LOCATION` 中单引号内的路径（如 `viewfs://c9/dw/ods/xxx`） | 空 |
+| 表类型 | `hive` / `clickhouse`，与主流程一致；`目标表类型` 空时默认 `hive` | `clickhouse` |
+
+**说明**：`tables` 页「操作类型」为**修改表**时，仍会生成 `_alter.sql` / `_ck_alter.sql`，但**当前版本不向 `rpa` sheet 追加行**。若本次运行没有任何「新建表」成功落地，仍会写入仅含表头的 `rpa` sheet。
+
 ## 类型转换规则
 
 ### MySQL → Hive
@@ -146,7 +160,7 @@ uv run create-table --debug
 ## 输出说明
 
 - **输出根目录**：`app/config/settings.py` 中的 `OUTPUT_BASE_DIR`（默认为项目父目录下的 `create-table-output/` 目录）
-- **日期归档**：每次运行时自动在输出根目录下创建当日日期目录（格式 `YYYYMMDD`），SQL 文件写入该目录
+- **日期归档**：每次运行时自动在输出根目录下创建当日日期目录（格式 `YYYYMMDD`），SQL 文件写入该目录；同目录下的输入 Excel（`create_table_info.xlsx`）会在运行结束时回写 **`rpa` sheet**（见上文「rpa sheet」）
 - **Hive 表名规则**：`ods_ad_产品线_表名_入仓方式`（入仓方式标准化为 day/hour）
 - **文件命名**：
   - Hive：`{hive表名}.sql`
@@ -192,7 +206,8 @@ uv run python -m unittest tests.test_mysql_parser -v
 
 | 测试文件 | 覆盖内容 |
 |----------|----------|
-| `test_main_flow.py` | 主流程关键分支（hive/clickhouse 分流、输出路径/后缀、输出目录创建、存在旧文件先删除、fields 匹配失败跳过） |
+| `test_main_flow.py` | 主流程关键分支（hive/clickhouse 分流、输出路径/后缀、输出目录创建、存在旧文件先删除、fields 匹配失败跳过、rpa 汇总与修改表跳过 rpa） |
+| `test_rpa_sheet.py` | rpa 列解析（去 LOCATION、LOCATION 路径、表级 COMMENT）、`write_rpa_sheet` 保留其他 sheet |
 | `test_mysql_parser.py` | MySQL 建表解析状态机（括号/引号/逗号场景、跳过约束行） |
 | `test_hive_create_sql.py` | Hive 建表 SQL 拼装分支（分区、存储格式、LOCATION、表注释后缀） |
 | `test_clickhouse_create_sql.py` | ClickHouse 建表 SQL 结构（本地表/分布式表、ALTER、ORDER BY、自增主键识别） |

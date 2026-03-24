@@ -57,6 +57,7 @@ class TestMainFlow(unittest.TestCase):
         hive_sql: str = "HIVE_SQL",
         ck_sql: str = "CK_SQL",
         ck_alter_sql: str = "CK_ALTER_SQL",
+        hive_alter_sql: str = "HIVE_ALTER_SQL",
         exists_output_file: bool = False,
     ):
         import app.main as main_mod
@@ -83,6 +84,10 @@ class TestMainFlow(unittest.TestCase):
         ) as m_build_ck_sql, patch.object(
             main_mod, "build_alter_table_sql_clickhouse", return_value=ck_alter_sql
         ) as m_build_ck_alter_sql, patch.object(
+            main_mod, "build_alter_table_sql_hive", return_value=hive_alter_sql
+        ) as m_build_hive_alter_sql, patch.object(
+            main_mod, "write_rpa_sheet", MagicMock()
+        ) as m_write_rpa, patch.object(
             main_mod, "os"
         ) as m_os, patch.object(
             main_mod.os.path, "exists", return_value=exists_output_file
@@ -98,6 +103,8 @@ class TestMainFlow(unittest.TestCase):
             "build_hive_sql": m_build_hive_sql,
             "build_ck_sql": m_build_ck_sql,
             "build_ck_alter_sql": m_build_ck_alter_sql,
+            "build_hive_alter_sql": m_build_hive_alter_sql,
+            "write_rpa_sheet": m_write_rpa,
             "exists": m_exists,
             "remove": m_os.remove,
             "expected_output_dir": expected_output_dir,
@@ -243,6 +250,96 @@ class TestMainFlow(unittest.TestCase):
         mocks["build_hive_sql"].assert_not_called()
         mocks["build_ck_sql"].assert_not_called()
         mocks["open"].assert_not_called()
+        mocks["write_rpa_sheet"].assert_called_once()
+        _, rows = mocks["write_rpa_sheet"].call_args[0]
+        self.assertEqual(rows, [])
+
+    def test_write_rpa_hive_create_row_defaults_ods_and_hive_type(self):
+        hive_sql = (
+            "CREATE EXTERNAL TABLE `default`.`x` (\n  `id` int\n)\n"
+            "COMMENT '测试表天表'\n"
+            "PARTITIONED BY (`dt` string)\n"
+            "STORED AS RCFILE  \n"
+            "LOCATION 'viewfs://c9/dw/ods/ods_ad_pl_t1_day';"
+        )
+        tables_df = _tables_df_row(hive表名="", 目标表类型="", 数仓分层="")
+        fields_df = _fields_df_for_table("t1")
+        mocks = self._run_main_with_mocks(
+            tables_df=tables_df,
+            fields_df=fields_df,
+            hive_sql=hive_sql,
+        )
+        mocks["write_rpa_sheet"].assert_called_once()
+        path_arg, rows_arg = mocks["write_rpa_sheet"].call_args[0]
+        self.assertTrue(str(path_arg).endswith("create_table_info.xlsx"))
+        self.assertEqual(len(rows_arg), 1)
+        row = rows_arg[0]
+        self.assertEqual(row["数仓分层"], "ods")
+        self.assertEqual(row["表类型"], "hive")
+        self.assertEqual(row["数据描述信息"], "测试表天表")
+        self.assertEqual(row["存储路径值"], "viewfs://c9/dw/ods/ods_ad_pl_t1_day")
+        self.assertNotIn("LOCATION", row["建表语句"])
+
+    def test_write_rpa_clickhouse_create_row(self):
+        tables_df = _tables_df_row(目标表类型="clickhouse", hive表名="", 操作类型="新建表")
+        fields_df = _fields_df_for_table("t1")
+        ck_sql = "CREATE TABLE local;\nCREATE TABLE dist;"
+        mocks = self._run_main_with_mocks(
+            tables_df=tables_df,
+            fields_df=fields_df,
+            ck_sql=ck_sql,
+        )
+        _, rows_arg = mocks["write_rpa_sheet"].call_args[0]
+        self.assertEqual(len(rows_arg), 1)
+        row = rows_arg[0]
+        self.assertEqual(row["表类型"], "clickhouse")
+        self.assertEqual(row["建表语句"], ck_sql)
+        self.assertEqual(row["数据描述信息"], "")
+        self.assertEqual(row["数仓分层"], "")
+        self.assertEqual(row["存储路径值"], "")
+
+    def test_write_rpa_skips_clickhouse_alter(self):
+        tables_df = _tables_df_row(目标表类型="clickhouse", hive表名="", 操作类型="修改表")
+        fields_df = pd.DataFrame(
+            [
+                {
+                    "表名": "t1",
+                    "字段名": "id",
+                    "字段数据类型": "INT(11)",
+                    "字段注释": "主键",
+                    "操作类型": "修改表",
+                }
+            ]
+        )
+        mocks = self._run_main_with_mocks(
+            tables_df=tables_df,
+            fields_df=fields_df,
+            ck_alter_sql="CK_ALTER_SQL",
+        )
+        _, rows_arg = mocks["write_rpa_sheet"].call_args[0]
+        self.assertEqual(rows_arg, [])
+
+    def test_write_rpa_skips_hive_alter(self):
+        tables_df = _tables_df_row(目标表类型="", hive表名="", 操作类型="修改表")
+        fields_df = pd.DataFrame(
+            [
+                {
+                    "表名": "t1",
+                    "字段名": "id",
+                    "字段数据类型": "INT(11)",
+                    "字段注释": "主键",
+                    "操作类型": "修改表",
+                }
+            ]
+        )
+        mocks = self._run_main_with_mocks(
+            tables_df=tables_df,
+            fields_df=fields_df,
+            hive_alter_sql="ALTER TABLE ...",
+        )
+        mocks["build_hive_alter_sql"].assert_called_once()
+        _, rows_arg = mocks["write_rpa_sheet"].call_args[0]
+        self.assertEqual(rows_arg, [])
 
 
 if __name__ == "__main__":

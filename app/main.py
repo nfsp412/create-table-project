@@ -34,6 +34,7 @@ from datetime import datetime
 from app.config.settings import EXCEL_FILENAME, OUTPUT_BASE_DIR
 from app.utils.excel_reader import load_excel
 from app.utils.logger import setup_logging
+from app.utils.rpa_sheet import build_rpa_row, write_rpa_sheet
 from app.utils.table_builder import (
     build_create_table_sql,
     build_table_name,
@@ -80,6 +81,8 @@ def main() -> None:
     # fields: 统一使用混合格式（5列+可选“操作类型”列）
     #   - 表名, 字段名, 字段数据类型, 字段注释, 建表语句, （可选）操作类型
     #   处理规则：逐行检测，有建表语句则解析，有字段信息则直接使用
+
+    rpa_rows: list[dict[str, str]] = []
 
     for _, t_row in tables_df.iterrows():
         # 标准化处理表名：去除空格，处理NaN
@@ -265,6 +268,18 @@ def main() -> None:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(create_sql)
         logger.info("表 %s 的建表语句已写入: %s", hive_table_name, output_path)
+
+        if op_type == "create":
+            rpa_rows.append(
+                build_rpa_row(
+                    target_table_type=target_table_type,
+                    create_sql=create_sql,
+                    dw_layer=dw_layer,
+                )
+            )
+
+    write_rpa_sheet(Path(excel_path), rpa_rows)
+    logger.info("rpa sheet 已写入: %s，共 %d 行", excel_path, len(rpa_rows))
 
     logger.info("所有表处理完成")
 
