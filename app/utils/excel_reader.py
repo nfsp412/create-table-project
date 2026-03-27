@@ -61,7 +61,7 @@ def load_excel(excel_path: str) -> Dict[str, pd.DataFrame]:
         )
     
     logger.info("fields sheet 包含5列（混合格式），将逐行检测处理方式")
-    fields_df = _process_fields_sheet(fields_df)
+    fields_df = process_fields_dataframe(fields_df)
 
     # 对齐美化 fields 前几行样例输出，确保所有列左对齐
     fields_preview_df = fields_df.head()
@@ -78,9 +78,9 @@ def load_excel(excel_path: str) -> Dict[str, pd.DataFrame]:
     return {"tables": tables_df, "fields": fields_df}
 
 
-def _process_fields_sheet(fields_df: pd.DataFrame) -> pd.DataFrame:
+def process_fields_dataframe(fields_df: pd.DataFrame) -> pd.DataFrame:
     """
-    处理fields sheet：逐行检测处理方式并提取字段信息。
+    处理 fields 原始 DataFrame：逐行检测处理方式并提取字段信息。
     
     处理规则（逐行检测）：
     - 如果一行有"建表语句"且不为空，解析建表语句提取字段信息
@@ -168,3 +168,8 @@ def _process_fields_sheet(fields_df: pd.DataFrame) -> pd.DataFrame:
         logger.warning("未解析出任何字段信息")
         cols = ["表名", "字段名", "字段数据类型", "字段注释", "操作类型"]
         return pd.DataFrame(columns=cols)
+
+
+def _process_fields_sheet(fields_df: pd.DataFrame) -> pd.DataFrame:
+    """兼容旧名，等同于 process_fields_dataframe。"""
+    return process_fields_dataframe(fields_df)

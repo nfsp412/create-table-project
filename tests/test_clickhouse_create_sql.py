@@ -63,6 +63,18 @@ class TestClickhouseCreateTableSql(unittest.TestCase):
         self.assertGreaterEqual(sql.count("add column `id`"), 1)
         self.assertGreaterEqual(sql.count("add column `amount`"), 1)
 
+    def test_clickhouse_alter_sql_empty_comment_omits_column_comment(self):
+        fields_df = pd.DataFrame(
+            {
+                "字段名": ["bare"],
+                "字段数据类型": ["String"],
+                "字段注释": [""],
+            }
+        )
+        sql = build_alter_table_sql_clickhouse("t_ck_empty_cmt", fields_df)
+        self.assertIn("`bare` String DEFAULT ''", sql)
+        self.assertNotIn("COMMENT", sql)
+
     def test_clickhouse_order_by_uses_auto_inc_id_when_available(self):
         """存在自增ID/主键字段时，应使用该字段作为 ORDER BY 键。"""
         fields_df = pd.DataFrame(

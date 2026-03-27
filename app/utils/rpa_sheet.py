@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any, Mapping
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 RPA_HEADERS = ["数据描述信息", "数仓分层", "建表语句", "存储路径值", "表类型"]
 
@@ -69,14 +69,17 @@ def build_rpa_row(
 
 def write_rpa_sheet(excel_path: Path, rows: list[Mapping[str, Any]]) -> None:
     """
-    在已有 xlsx 上新建或覆盖 `rpa` sheet，不影响其他 sheet。
-    rows 为 dict 列表，键需包含 RPA_HEADERS 所列列名。
+    在 xlsx 上新建或覆盖 `rpa` sheet；文件不存在时创建新工作簿（仅含 rpa sheet）。
+    已存在文件时保留除 `rpa` 外的其他 sheet。
     """
     path = Path(excel_path)
-    if not path.is_file():
-        raise FileNotFoundError(f"Excel 文件不存在: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    wb = load_workbook(path)
+    if path.is_file():
+        wb = load_workbook(path)
+    else:
+        wb = Workbook()
+        wb.remove(wb.active)
     if "rpa" in wb.sheetnames:
         wb.remove(wb["rpa"])
     ws = wb.create_sheet("rpa")

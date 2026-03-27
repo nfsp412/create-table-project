@@ -25,9 +25,10 @@ class TestHiveAlterTableSql(unittest.TestCase):
 
         sql = build_alter_table_sql_hive("ods_ad_product_test_day", fields_df)
 
-        self.assertIn("ALTER TABLE `default`.`ods_ad_product_test_day` ADD COLUMNS", sql)
+        self.assertIn("alter table default.`ods_ad_product_test_day` add columns", sql.lower())
         self.assertIn("`new_col` STRING", sql)
         self.assertIn("COMMENT '新字段'", sql)
+        self.assertTrue(sql.rstrip().endswith("cascade;"))
 
     def test_hive_alter_sql_multiple_fields(self):
         """多字段：一条 SQL 中包含多个 add columns 片段"""
@@ -41,12 +42,12 @@ class TestHiveAlterTableSql(unittest.TestCase):
 
         sql = build_alter_table_sql_hive("ods_ad_product_test_day", fields_df)
 
-        self.assertIn("ALTER TABLE `default`.`ods_ad_product_test_day` ADD COLUMNS", sql)
+        self.assertIn("alter table default.`ods_ad_product_test_day` add columns", sql.lower())
         self.assertIn("`id` BIGINT", sql)
         self.assertIn("`amount` STRING", sql)
         self.assertIn("COMMENT '主键'", sql)
         self.assertIn("COMMENT '金额'", sql)
-        self.assertEqual(sql.upper().count("ADD COLUMNS"), 1)
+        self.assertEqual(sql.lower().count("add columns"), 1)
 
     def test_hive_alter_sql_empty_fields_returns_empty(self):
         """空字段列表：返回空字符串"""
@@ -73,6 +74,18 @@ class TestHiveAlterTableSql(unittest.TestCase):
         self.assertIn("`id` BIGINT", sql)
         self.assertIn("`name` STRING", sql)
         self.assertIn("`price` STRING", sql)
+
+    def test_hive_alter_sql_empty_comment_omits_column_comment(self):
+        fields_df = pd.DataFrame(
+            {
+                "字段名": ["bare"],
+                "字段数据类型": ["STRING"],
+                "字段注释": [""],
+            }
+        )
+        sql = build_alter_table_sql_hive("t_empty_cmt", fields_df)
+        self.assertIn("`bare` STRING", sql)
+        self.assertNotIn("COMMENT", sql)
 
 
 if __name__ == "__main__":

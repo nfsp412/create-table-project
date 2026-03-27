@@ -69,7 +69,21 @@ class TestMainFlow(unittest.TestCase):
         mock_datetime = MagicMock()
         mock_datetime.now.return_value.strftime.return_value = fake_date
 
-        with patch.object(main_mod, "parse_args", return_value=Namespace(debug=False)), patch.object(
+        stub_excel = Path(output_base) / "_stub_input.xlsx"
+        stub_excel.parent.mkdir(parents=True, exist_ok=True)
+        stub_excel.touch(exist_ok=True)
+
+        with patch.object(
+            main_mod,
+            "parse_args",
+            return_value=Namespace(
+                debug=False,
+                input_excel=stub_excel,
+                json_file=None,
+                json_string=None,
+                output_dir=None,
+            ),
+        ), patch.object(
             main_mod, "setup_logging"
         ) as m_setup_logging, patch.object(
             main_mod, "load_excel", return_value={"tables": tables_df, "fields": fields_df}

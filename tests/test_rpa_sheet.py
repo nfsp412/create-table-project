@@ -123,7 +123,12 @@ class TestWriteRpaSheet(unittest.TestCase):
         wb3 = load_workbook(path)
         self.assertEqual(wb3["rpa"].max_row, 1)
 
-    def test_write_rpa_sheet_missing_file(self):
-        with self.assertRaises(FileNotFoundError):
-            write_rpa_sheet(self.tmp_dir / "nope.xlsx", [])
+    def test_write_rpa_sheet_creates_file_when_missing(self):
+        path = self.tmp_dir / "new_only_rpa.xlsx"
+        self.assertFalse(path.is_file())
+        write_rpa_sheet(path, [])
+        self.assertTrue(path.is_file())
+        wb = load_workbook(path)
+        self.assertEqual(wb.sheetnames, ["rpa"])
+        self.assertEqual(wb["rpa"].max_row, 1)
 

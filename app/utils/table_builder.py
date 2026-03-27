@@ -288,6 +288,7 @@ def build_alter_table_sql_clickhouse(
     对每个字段生成 add column 子句，并按表合并为：
     - 本地表一条 ALTER 语句
     - 分布式表一条 ALTER 语句
+    字段注释为空时不输出列 COMMENT（与 Hive ALTER 一致）。
     """
     local_add_clauses = []
     dist_add_clauses = []
@@ -315,10 +316,9 @@ def build_alter_table_sql_clickhouse(
         else:
             default_literal = "''"
 
-        clause = (
-            f"add column `{col_name}` {clickhouse_type} "
-            f"DEFAULT {default_literal} COMMENT '{col_comment}'"
-        )
+        clause = f"add column `{col_name}` {clickhouse_type} DEFAULT {default_literal}"
+        if col_comment:
+            clause += f" COMMENT '{col_comment}'"
         local_add_clauses.append(clause)
         dist_add_clauses.append(clause)
 
@@ -350,6 +350,7 @@ def build_alter_table_sql_hive(
     根据需要新增的字段信息生成 Hive 新增字段的 ALTER 语句。
     期望 fields_df 已经过滤为当前表的"需要新增"的字段行。
     对每个字段生成 ADD COLUMNS 子句，合并为一条 ALTER TABLE 语句。
+    字段注释为空时不输出列 COMMENT（与 Hive 新建表一致）。
 
     Args:
         hive_table_name: Hive 表名
@@ -385,8 +386,8 @@ def build_alter_table_sql_hive(
 
     columns_block = ",\n".join(columns_sql)
     alter_sql = (
-        f"ALTER TABLE `default`.`{hive_table_name}` ADD COLUMNS (\n"
+        f"alter table default.`{hive_table_name}` add columns (\n"
         f"{columns_block}\n"
-        f");"
+        f") cascade;"
     )
     return alter_sql
