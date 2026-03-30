@@ -29,6 +29,14 @@ def _row_from_data(data: InputData) -> tuple[list, list] | None:
 
     display_table_name = strip_sharding_suffix(table_name) if data.is_sharding == "是" else table_name
 
+    hive_name = (
+        str(data.hive_table_name).strip()
+        if data.hive_table_name and str(data.hive_table_name).strip()
+        else None
+    )
+    # 与 main.py 一致：若 tables 填了 hive表名，fields 的「表名」须与之相同才能匹配到字段行
+    fields_table_key = hive_name if hive_name else display_table_name
+
     tables_row = [
         display_table_name,
         data.product_line,
@@ -38,11 +46,11 @@ def _row_from_data(data: InputData) -> tuple[list, list] | None:
         data.table_format,
         data.target_table_format,
         data.operate_type,
-        None,
+        hive_name,
         data.is_sharding,
     ]
     fields_row = [
-        display_table_name,
+        fields_table_key,
         None,
         None,
         None,

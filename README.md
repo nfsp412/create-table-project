@@ -93,8 +93,8 @@ uv run create-table --json-file ../create-table-output/20260327/input.json
 1. **新建表（含 `mysql_sql`）**  
    以下 **8 个字段均须存在且非空**，否则记录 WARNING 并跳过该项：  
    `mysql_sql`、`product_line`、`day_or_hour`、`dw_layer`、`table_format`、`target_table_format`、`operate_type`（须为 `新建表`）、`is_sharding`。  
-   另可选：`table_comment`（不提供则从 `mysql_sql` 表级 COMMENT 解析）。  
-   从 `mysql_sql` 解析 MySQL 表名；**新建表**在内存中的 `fields` 等价于 Excel 中一行，建表语句列为完整 DDL。
+   另可选：`table_comment`（不提供则从 `mysql_sql` 表级 COMMENT 解析）；`hive_table_name`（非空则写入 tables 的 hive表名，且 `fields` 的表名与之相同，与仅填 Excel「hive表名」行为一致）。  
+   从 `mysql_sql` 解析 MySQL 表名（写入 tables「表名」列）；**新建表**在内存中的 `fields` 等价于 Excel 中一行，建表语句列为完整 DDL。
 
 2. **修改表（含 `new_fields` 数组）**  
    须包含：`table_name`、`operate_type`（须为 `修改表`）、`target_table_format`、`new_fields`（非空数组）。  
@@ -130,9 +130,9 @@ uv run create-table --json-file ../create-table-output/20260327/input.json
 | tables | 建表格式         | 新建表必填 `table_format`；修改表为空                    | orc, rcfile, text |
 | tables | 目标表类型        | `target_table_format`；新建表必填；修改表必填             | hive, clickhouse  |
 | tables | 操作类型         | `operate_type`；新建表必填；修改表必填                                | 新建表, 修改表          |
-| tables | hive表名       | 新建表：为空；**修改表**：与 `table_name` 相同              | -                 |
+| tables | hive表名       | **新建表**：默认可为空；JSON 可通过可选字段 `hive_table_name` 显式指定（与在 Excel 中填写 hive表名 等价，且 `fields` 中表名会与之对齐以便匹配）。**修改表**：与 `table_name` 相同 | -                 |
 | tables | 是否分库分表       | 仅新建表：`is_sharding`（必填枚举）；修改表行为空               | 是, 否              |
-| fields | 表名           | **新建表**：从 `mysql_sql` 解析；**修改表**：`table_name` | -                 |
+| fields | 表名           | **新建表**：默认与 `mysql_sql` 解析出的逻辑表名一致；若 JSON 提供了 `hive_table_name`，则为该值（须与 tables 的 hive表名 一致）。**修改表**：`table_name` | -                 |
 | fields | 字段名 / 字段数据类型 | **新建表**：空；**修改表**：`new_fields` 每项一行           | -                 |
 | fields | 操作类型         | 与 tables 一致                                   | 新建表, 修改表          |
 | fields | 建表语句         | **新建表**：`mysql_sql` 原文；**修改表**：空              | -                 |

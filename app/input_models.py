@@ -31,3 +31,4 @@ class InputData:
     operate_type: str | None = None
     table_comment: str | None = None
     is_sharding: str = "否"
+    hive_table_name: str | None = None

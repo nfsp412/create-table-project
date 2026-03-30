@@ -103,6 +103,17 @@ class TestParseInputDictRouting(unittest.TestCase):
         self.assertIsInstance(out, InputData)
         self.assertEqual(out.operate_type, "新建表")
 
+    def test_new_table_optional_hive_table_name_populates_tables_and_fields_key(self):
+        d = _full_create_json()
+        d["hive_table_name"] = "ods_ad_sfst_demo_t_day"
+        out = parse_input_dict(d)
+        self.assertIsInstance(out, InputData)
+        self.assertEqual(out.hive_table_name, "ods_ad_sfst_demo_t_day")
+        items = parse_json_to_items(json.dumps(d))
+        tables_df, fields_raw = json_items_to_dataframes(items)
+        self.assertEqual(tables_df.iloc[0]["hive表名"], "ods_ad_sfst_demo_t_day")
+        self.assertEqual(fields_raw.iloc[0]["表名"], "ods_ad_sfst_demo_t_day")
+
     def test_modify_table_with_mysql_sql_still_modify_branch(self):
         d = {
             "operate_type": "修改表",

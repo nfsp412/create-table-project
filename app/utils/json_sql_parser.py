@@ -28,7 +28,7 @@ IS_SHARDING_VALUES = frozenset(("是", "否"))
 _ALL_KEYS = (
     "mysql_sql", "day_or_hour", "product_line",
     "dw_layer", "table_format", "target_table_format", "operate_type",
-    "table_comment", "is_sharding", "table_name",
+    "table_comment", "is_sharding", "table_name", "hive_table_name",
 )
 
 
@@ -149,6 +149,12 @@ def _parse_create_table_dict(data: dict) -> InputData | None:
     if not table_comment:
         table_comment = parse_table_comment(data["mysql_sql"])
 
+    hive_table_name_raw = data.get("hive_table_name")
+    hive_table_name: str | None = None
+    if hive_table_name_raw is not None:
+        h = str(hive_table_name_raw).strip()
+        hive_table_name = h or None
+
     return InputData(
         mysql_sql=data["mysql_sql"],
         day_or_hour=data["day_or_hour"],
@@ -159,6 +165,7 @@ def _parse_create_table_dict(data: dict) -> InputData | None:
         operate_type=operate_type,
         table_comment=table_comment,
         is_sharding=is_sharding,
+        hive_table_name=hive_table_name,
     )
 
 
