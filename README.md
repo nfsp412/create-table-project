@@ -94,7 +94,7 @@ uv run create-table --json-file ../create-table-output/20260327/input.json
    以下 **8 个字段均须存在且非空**，否则记录 WARNING 并跳过该项：  
    `mysql_sql`、`product_line`、`day_or_hour`、`dw_layer`、`table_format`、`target_table_format`、`operate_type`（须为 `新建表`）、`is_sharding`。  
    另可选：`table_comment`（不提供则从 `mysql_sql` 表级 COMMENT 解析）；`hive_table_name`（非空则写入 tables 的 hive表名，且 `fields` 的表名与之相同，与仅填 Excel「hive表名」行为一致）。  
-   从 `mysql_sql` 解析 MySQL 表名（写入 tables「表名」列）；**新建表**在内存中的 `fields` 等价于 Excel 中一行，建表语句列为完整 DDL。
+   `mysql_sql` 也可填写 **Hive 风格** DDL（如 `CREATE EXTERNAL TABLE IF NOT EXISTS \`default\`.\`ods_xxx\` (...)`）：表名解析与列定义提取均支持 `EXTERNAL`、`IF NOT EXISTS` 及 `` `库`.`表` ``；逻辑表名为限定名时的**最后一段**（与原先仅 MySQL `CREATE TABLE` 行为一致）。**新建表**在内存中的 `fields` 等价于 Excel 中一行，建表语句列为完整 DDL。
 
 2. **修改表（含 `new_fields` 数组）**  
    须包含：`table_name`、`operate_type`（须为 `修改表`）、`target_table_format`、`new_fields`（非空数组）。  

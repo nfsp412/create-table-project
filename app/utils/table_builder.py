@@ -204,10 +204,29 @@ def build_create_table_sql_clickhouse(
         hive_table_name: Hive 表名
         fields_df: 字段信息 DataFrame
     """
+    # Hive/MySQL DDL 常含分区列 dt；与固定追加的 `dt` Date 冲突时先剔除输入中的 dt，再统一追加
+    work_df = fields_df.copy()
+    if "字段名" in work_df.columns and not work_df.empty:
+
+        def _not_dt_col(v) -> bool:
+            if pd.isna(v):
+                return True
+            return str(v).strip().casefold() != "dt"
+
+        before = len(work_df)
+        work_df = work_df[work_df["字段名"].map(_not_dt_col)].reset_index(drop=True)
+        dropped = before - len(work_df)
+        if dropped:
+            logger.debug(
+                "ClickHouse 表 %s: 已忽略输入中 %d 个 dt 列定义，将追加固定 `dt` Date",
+                hive_table_name,
+                dropped,
+            )
+
     columns_sql = []
     candidate_id_field = None
 
-    for _, row in fields_df.iterrows():
+    for _, row in work_df.iterrows():
         col_name = str(row["字段名"]).strip()
         mysql_type = str(row["字段数据类型"]).strip() if not pd.isna(row["字段数据类型"]) else ""
         # 优化5：规范化字段注释，将特殊字符转换为单个空格
@@ -232,7 +251,7 @@ def build_create_table_sql_clickhouse(
             col_def += f" COMMENT '{col_comment}'"
         columns_sql.append(col_def)
 
-    # clickhouse表需要追加一个dt字段
+    # 固定分区列 dt（输入中的 dt 已在上方剔除，避免重复）
     columns_sql.append("  `dt` Date")
     columns_block = ",\n".join(columns_sql)
 

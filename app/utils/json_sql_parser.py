@@ -5,6 +5,7 @@ import re
 from typing import Union
 
 from app.input_models import InputData, ModifyTableInput, NewField
+from app.utils.mysql_parser import parse_create_ddl_table_name
 
 logger = logging.getLogger(__name__)
 
@@ -185,11 +186,8 @@ def strip_sharding_suffix(table_name: str) -> str:
 
 
 def parse_table_name(sql: str) -> str | None:
-    match = re.search(r"CREATE\s+TABLE\s+`?(\w+)`?", sql, re.IGNORECASE)
-    if match:
-        return match.group(1)
-    logger.warning("无法从 SQL 中解析表名，SQL 片段: %.100s", sql)
-    return None
+    """支持 MySQL 与 Hive DDL（含 EXTERNAL、IF NOT EXISTS、`` `db`.`tbl` ``）。"""
+    return parse_create_ddl_table_name(sql)
 
 
 def parse_input_dict(data: dict) -> Union[InputData, ModifyTableInput, None]:

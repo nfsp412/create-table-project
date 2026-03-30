@@ -36,6 +36,23 @@ class TestClickhouseCreateTableSql(unittest.TestCase):
         self.assertIn("`id` Int64", sql)
         self.assertIn("`amount` String", sql)
 
+    def test_clickhouse_strips_input_dt_then_appends_fixed_date(self):
+        """Hive 等 DDL 中的 dt 分区列不应与固定 `dt` Date 重复。"""
+        fields_df = pd.DataFrame(
+            {
+                "字段名": ["id", "dt", "DT"],
+                "字段数据类型": ["INT", "string", "varchar(10)"],
+                "字段注释": ["主键", "分区", "dup"],
+            }
+        )
+        sql = build_create_table_sql_clickhouse("ods_ad_ck_dt_dedup_day", fields_df)
+        # 输入中的 dt 已剔除，仅保留固定 Date；不保留 string 映射
+        self.assertNotIn("`dt` String", sql)
+        self.assertIn("`dt` Date", sql)
+        # 两段 CREATE 各一列定义
+        self.assertEqual(sql.count("  `dt` Date"), 2)
+        self.assertIn("`id` Int64", sql)
+
     def test_clickhouse_alter_sql_uses_add_column_syntax(self):
         fields_df = pd.DataFrame(
             {

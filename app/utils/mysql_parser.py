@@ -14,6 +14,55 @@ from app.utils.table_builder import normalize_field_comment
 
 logger = logging.getLogger(__name__)
 
+# MySQL / Hive 建表语句头部：支持 EXTERNAL、IF NOT EXISTS、TEMPORARY
+CREATE_DDL_HEADER_RE = re.compile(
+    r"CREATE\s+(?:TEMPORARY\s+)?(?:EXTERNAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _parse_table_identifier_after_header(sql: str, header_end: int) -> tuple[str | None, int | None]:
+    """
+    跳过 CREATE ... TABLE ... 头部之后到列定义括号前的表名。
+    支持：`db`.`tbl`、`tbl`、db.tbl、t（限定名取最后一段作为逻辑表名）。
+    返回 (逻辑表名, 表名结束后的下标)；无法识别时 (None, None)。
+    """
+    rest_slice = sql[header_end:]
+    rest = rest_slice.lstrip()
+    pos = header_end + (len(rest_slice) - len(rest))
+    m_bt = re.match(r"`([^`]+)`(?:\s*\.\s*`([^`]+)`)?", sql[pos:])
+    if m_bt:
+        raw = m_bt.group(2) if m_bt.group(2) else m_bt.group(1)
+        name = (raw or "").strip() or None
+        return (name, pos + m_bt.end())
+    m_uq = re.match(r"(\w+)(?:\.(\w+))?(?=\s*[(]|\s|$)", sql[pos:], re.DOTALL)
+    if m_uq:
+        g2 = m_uq.group(2)
+        g1 = m_uq.group(1)
+        raw = g2 if g2 else g1
+        name = (raw or "").strip() or None
+        return (name, pos + m_uq.end())
+    return (None, None)
+
+
+def parse_create_ddl_table_name(sql: str) -> str | None:
+    """
+    从 MySQL 或 Hive 风格的 CREATE [EXTERNAL] TABLE 语句中解析逻辑表名。
+    `` `db`.`tbl` `` 时返回 `` tbl ``；用于 JSON 中 mysql_sql 填写 Hive DDL 的场景。
+    """
+    if not sql or not str(sql).strip():
+        return None
+    s = sql.strip()
+    hm = CREATE_DDL_HEADER_RE.search(s)
+    if not hm:
+        logger.warning("无法从 SQL 中解析表名（未识别 CREATE [EXTERNAL] TABLE），SQL 片段: %.100s", s)
+        return None
+    name, end_pos = _parse_table_identifier_after_header(s, hm.end())
+    if not name or end_pos is None:
+        logger.warning("无法从 SQL 中解析表名（表名格式未识别），SQL 片段: %.100s", s)
+        return None
+    return name
+
 
 def parse_mysql_create_table(create_table_sql: str) -> List[Dict[str, str]]:
     """
@@ -37,20 +86,18 @@ def parse_mysql_create_table(create_table_sql: str) -> List[Dict[str, str]]:
     # 清理SQL语句：统一空白字符，但保留必要的空格
     sql = create_table_sql.strip()
     
-    # 提取 CREATE TABLE ... (字段定义) 部分
-    # 需要找到第一个 ( 和对应的最后一个 )，但要排除表名后的括号
-    # 策略：找到 CREATE TABLE 后的第一个 (，然后找到匹配的最后一个 )
-    create_table_pos = re.search(r'CREATE\s+TABLE\s+', sql, re.IGNORECASE)
-    if not create_table_pos:
+    # 提取列定义括号：与 parse_create_ddl_table_name 一致，支持 Hive EXTERNAL / IF NOT EXISTS
+    hm = CREATE_DDL_HEADER_RE.search(sql)
+    if not hm:
         logger.warning("未找到 CREATE TABLE 关键字: %s", sql[:100])
         return []
-    
-    start_pos = create_table_pos.end()
-    # 跳过表名（可能包含反引号、引号等）
-    table_name_match = re.search(r'[`"]?\w+[`"]?\s*', sql[start_pos:])
-    if table_name_match:
-        start_pos += table_name_match.end()
-    
+
+    _tname, end_after_name = _parse_table_identifier_after_header(sql, hm.end())
+    if end_after_name is None:
+        logger.warning("未找到表名: %s", sql[:100])
+        return []
+
+    start_pos = end_after_name
     # 找到第一个 (
     first_paren = sql.find('(', start_pos)
     if first_paren == -1:

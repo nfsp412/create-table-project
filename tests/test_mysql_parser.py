@@ -6,7 +6,11 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.utils.mysql_parser import parse_mysql_create_table, _parse_single_field
+from app.utils.mysql_parser import (
+    parse_create_ddl_table_name,
+    parse_mysql_create_table,
+    _parse_single_field,
+)
 
 
 class TestMysqlParser(unittest.TestCase):
@@ -51,6 +55,39 @@ class TestMysqlParser(unittest.TestCase):
             self.assertEqual(parsed["字段注释"], expected["字段注释"])
 
         self.assertIsNone(_parse_single_field("PRIMARY KEY (`id`)"))
+
+
+class TestParseCreateDdlTableName(unittest.TestCase):
+    def test_mysql_backtick(self):
+        self.assertEqual(parse_create_ddl_table_name("CREATE TABLE `foo` (id int)"), "foo")
+
+    def test_mysql_simple_word(self):
+        self.assertEqual(parse_create_ddl_table_name("CREATE TABLE demo_t (id int)"), "demo_t")
+
+    def test_mysql_db_table_unquoted(self):
+        self.assertEqual(parse_create_ddl_table_name("CREATE TABLE db1.tbl1 (id int)"), "tbl1")
+
+    def test_hive_external_if_not_exists_qualified(self):
+        sql = (
+            "CREATE EXTERNAL TABLE IF NOT EXISTS `default`.`ods_ad_x_day` ("
+            "`id` bigint COMMENT 'pk') STORED AS ORC"
+        )
+        self.assertEqual(parse_create_ddl_table_name(sql), "ods_ad_x_day")
+
+    def test_hive_external_unquoted(self):
+        sql = "CREATE EXTERNAL TABLE ods_y (`a` string COMMENT 'c')"
+        self.assertEqual(parse_create_ddl_table_name(sql), "ods_y")
+
+    def test_parse_mysql_create_table_accepts_hive_header(self):
+        sql = (
+            "CREATE EXTERNAL TABLE IF NOT EXISTS `hive_tbl` ("
+            "`id` bigint COMMENT '主键', `name` string)"
+        )
+        result = parse_mysql_create_table(sql)
+        self.assertEqual(len(result), 2)
+        by_name = {f["字段名"]: f for f in result}
+        self.assertEqual(by_name["id"]["字段数据类型"].lower(), "bigint")
+        self.assertEqual(by_name["name"]["字段数据类型"].lower(), "string")
 
 
 if __name__ == "__main__":
